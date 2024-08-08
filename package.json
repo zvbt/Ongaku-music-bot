@@ -14,5 +14,13 @@
     "dotenv": "^16.4.5",
     "libsodium-wrappers": "^0.7.14",
     "ts-node": "^10.9.2"
-  }
+  },
+  "version": "1.0.0",
+  "description": "To install dependencies:",
+  "main": "index.js",
+  "scripts": {
+    "start": "bun index.ts"
+  },
+  "author": "zvbt",
+  "license": "MIT"
 }
