@@ -5,22 +5,20 @@
   "devDependencies": {
     "@types/bun": "latest"
   },
-  "peerDependencies": {
-    "typescript": "^5.5.4"
-  },
   "dependencies": {
     "@discordjs/voice": "^0.17.0",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
     "libsodium-wrappers": "^0.7.14",
     "ts-node": "^10.9.2",
-    "tsx": "^4.17.0"
+    "tsx": "^4.17.0",
+    "typescript": "^5.5.4"
   },
   "version": "1.0.0",
   "description": "To install dependencies:",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
-    "start": "tsx index.ts"
+    "start": "node index.js"
   },
   "author": "",
   "license": "ISC"
