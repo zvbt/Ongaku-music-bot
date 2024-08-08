@@ -1,15 +1,21 @@
-# ongaku-bot
+# Ongaku Discord Bot
 
-To install dependencies:
+Simple discord bot for [Ongaku](https://ongaku.zvbt.space)
 
-```bash
-bun install
+
+## Self host
+
+With node.js `npm start`
+<br>
+With bun.sh `bun run index.ts`
+
+.env example
+```
+DISCORD_TOKEN=Your bot Discord token
+KPOP=https://example.com/radio.mp3 // Link to your web radio
+JPOP=https://example.com/radio.mp3 // Link to your web radio
 ```
 
-To run:
+## Invite
 
-```bash
-bun run index.ts
-```
-
-This project was created using `bun init` in bun v1.1.21. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+You can invite the bot to your Discord server with this [link](https://discord.com/oauth2/authorize?client_id=1271103628127506522&permissions=2184203264&integration_type=0&scope=bot) 
