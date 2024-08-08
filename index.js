@@ -1,6 +1,6 @@
-import { Client, GatewayIntentBits, REST, Routes, PermissionsBitField, GuildMember, EmbedBuilder } from 'discord.js';
-import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } from '@discordjs/voice';
-import dotenv from 'dotenv';
+const { Client, GatewayIntentBits, REST, Routes, PermissionsBitField, GuildMember, EmbedBuilder } = require('discord.js');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const dotenv = require ('dotenv');
 
 dotenv.config();
 
@@ -68,7 +68,6 @@ client.once('ready', async () => {
 client.on('guildCreate', async (guild) => {
     console.log(`Joined a new guild: ${guild.id}`);
 
-    // Register commands for the new guild
     try {
         await rest.put(
             Routes.applicationGuildCommands(client.user.id, guild.id),
