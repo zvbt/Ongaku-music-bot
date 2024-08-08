@@ -13,14 +13,15 @@
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
     "libsodium-wrappers": "^0.7.14",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsx": "^4.17.0"
   },
   "version": "1.0.0",
   "description": "To install dependencies:",
   "main": "index.js",
   "scripts": {
-    "start": "bun index.ts"
+    "start": "tsx index.ts"
   },
-  "author": "zvbt",
-  "license": "MIT"
+  "author": "",
+  "license": "ISC"
 }
