@@ -33,6 +33,15 @@ client.once('ready', () => {
     console.log('Ongaku Bot is online!');
     console.log(`Connected Nodes: ${manager.nodes.map(node => node.host).join(', ')}`);
     manager.init(client.user.id);
+
+
+    client.user.setPresence({
+        activities: [{ 
+            name: 'to BANGERS',
+            type: 'LISTENING'// (PLAYING, STREAMING, LISTENING, WATCHING)
+        }],
+        status: 'online'// (online, idle, dnd, invisible)
+    });
 });
 
 client.on('raw', (d) => manager.updateVoiceState(d));
