@@ -13,9 +13,8 @@ const {
     createAudioResource, 
     AudioPlayerStatus, 
     VoiceConnectionStatus 
-} = require('@discordjs/voice');
+} = require('@discordjs/opus');
 const dotenv = require('dotenv');
-const { createAudioResource } = require('@discordjs/voice'); // Include @discordjs/opus
 
 dotenv.config();
 
