@@ -15,7 +15,7 @@ const {
     VoiceConnectionStatus 
 } = require('@discordjs/voice');
 const dotenv = require('dotenv');
-const { OpusEncoder } = require('@discordjs/opus'); // Include @discordjs/opus
+const { createAudioResource } = require('@discordjs/voice'); // Include @discordjs/opus
 
 dotenv.config();
 
@@ -123,8 +123,9 @@ client.on('interactionCreate', async (interaction) => {
 
         const player = createAudioPlayer();
         const resource = createAudioResource(radioUrl, {
-            inputType: 'ogg/opus', // Specify that this is a pre-encoded Opus stream
+            inputType: 'ogg/opus', // Ensure this is set correctly
         });
+        
 
         player.play(resource);
         connection.subscribe(player);
