@@ -1,6 +1,21 @@
-const { Client, GatewayIntentBits, REST, Routes, PermissionsBitField, GuildMember, EmbedBuilder } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const dotenv = require ('dotenv');
+const { 
+    Client, 
+    GatewayIntentBits, 
+    REST, 
+    Routes, 
+    PermissionsBitField, 
+    GuildMember, 
+    EmbedBuilder 
+} = require('discord.js');
+const { 
+    joinVoiceChannel, 
+    createAudioPlayer, 
+    createAudioResource, 
+    AudioPlayerStatus, 
+    VoiceConnectionStatus 
+} = require('@discordjs/voice');
+const dotenv = require('dotenv');
+const { OpusEncoder } = require('@discordjs/opus'); // Include @discordjs/opus
 
 dotenv.config();
 
@@ -107,7 +122,9 @@ client.on('interactionCreate', async (interaction) => {
         currentConnection = connection;
 
         const player = createAudioPlayer();
-        const resource = createAudioResource(radioUrl);
+        const resource = createAudioResource(radioUrl, {
+            inputType: 'ogg/opus', // Specify that this is a pre-encoded Opus stream
+        });
 
         player.play(resource);
         connection.subscribe(player);
@@ -135,7 +152,6 @@ client.on('interactionCreate', async (interaction) => {
         currentPlayer = null;
 
         await interaction.reply('Stopped the radio and disconnected from the voice channel.');
-        await interaction.r
     } else if (commandName === 'info') {
         const guilds = await client.guilds.fetch();
         const totalMembers = (await Promise.all(
