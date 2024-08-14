@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, REST } = require('discord.js');
 const { Manager } = require('erela.js');
 const dotenv = require('dotenv');
 
@@ -44,6 +44,8 @@ client.once('ready', () => {
     });
 });
 
+
+const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 client.once('ready', async () => {
     console.log('Ongaku Bot is online!');
     try {
