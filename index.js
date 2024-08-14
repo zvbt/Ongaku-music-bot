@@ -42,25 +42,27 @@ client.once('ready', () => {
         }],
         status: 'online'// (online, idle, dnd, invisible)
     });
+});
 
+client.once('ready', async () => {
+    console.log('Ongaku Bot is online!');
     try {
-    const guilds = await client.guilds.fetch();
+        const guilds = await client.guilds.fetch();
 
-    guilds.forEach(async (guild) => {
-        try {
-            await rest.put(
-                Routes.applicationGuildCommands(client.user.id, guild.id),
-                { body: commands },
-            );
-            console.log(`Successfully reloaded application (/) commands for guild ${guild.id}.`);
-        } catch (error) {
-            console.error(`Failed to register commands for guild ${guild.id}:`, error);
-        }
-    });
-} catch (error) {
-    console.error('Error fetching guilds:', error);
-}
-
+        guilds.forEach(async (guild) => {
+            try {
+                await rest.put(
+                    Routes.applicationGuildCommands(client.user.id, guild.id),
+                    { body: commands },
+                );
+                console.log(`Successfully reloaded application (/) commands for guild ${guild.id}.`);
+            } catch (error) {
+                console.error(`Failed to register commands for guild ${guild.id}:`, error);
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching guilds:', error);
+    }
 });
 
 client.on('guildCreate', async (guild) => {
@@ -77,6 +79,7 @@ client.on('guildCreate', async (guild) => {
         console.error(`Failed to register commands for new guild ${guild.id}:`, error);
     }
 });
+
 
 
 client.on('raw', (d) => manager.updateVoiceState(d));
