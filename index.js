@@ -41,12 +41,36 @@ async function registerCommands(guildId) {
 
     try {
         if (guildId) {
+            // Unregister existing guild-specific commands
+            const existingCommands = await rest.get(
+                Routes.applicationGuildCommands(client.user.id, guildId)
+            );
+
+            for (const command of existingCommands) {
+                await rest.delete(
+                    Routes.applicationGuildCommand(client.user.id, guildId, command.id)
+                );
+            }
+
+            // Register new commands
             await rest.put(
                 Routes.applicationGuildCommands(client.user.id, guildId),
                 { body: commands }
             );
             console.log(`Registered commands for guild ${guildId}`);
         } else {
+            // Unregister existing global commands
+            const existingCommands = await rest.get(
+                Routes.applicationCommands(client.user.id)
+            );
+
+            for (const command of existingCommands) {
+                await rest.delete(
+                    Routes.applicationCommand(client.user.id, command.id)
+                );
+            }
+
+            // Register new commands
             await rest.put(
                 Routes.applicationCommands(client.user.id),
                 { body: commands }
