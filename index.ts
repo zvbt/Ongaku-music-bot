@@ -1,21 +1,19 @@
-import { Client, GatewayIntentBits, REST, Routes, CommandInteraction, PermissionsBitField, GuildMember, EmbedBuilder, Guild } from 'discord.js';
-import { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnection, AudioPlayer } from '@discordjs/voice';
-import * as dotenv from 'dotenv';
+import { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, REST, Routes, CommandInteraction, Guild, Message, RESTPostAPIChatInputApplicationCommandsJSONBody, VoiceState } from 'discord.js';
+import { Manager, Node } from 'erela.js';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-const client = new Client({ 
+const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildVoiceStates, 
-        GatewayIntentBits.GuildMembers
-    ] 
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+    ],
 });
 
-let currentConnection: VoiceConnection | null = null;
-let currentPlayer: AudioPlayer | null = null;
-
-const commands = [
+const commands: RESTPostAPIChatInputApplicationCommandsJSONBody[] = [
     {
         name: 'play',
         description: 'Plays K-Pop or J-Pop in your current voice channel',
@@ -34,56 +32,100 @@ const commands = [
     },
     {
         name: 'stop',
-        description: 'Stops the radio and disconnects the bot from the voice channel',
+        description: 'Stop the music and disconnect the bot from the voice channel',
     },
     {
         name: 'info',
-        description: 'Displays information about the bot',
-    },
+        description: 'Get information about the bot and its stats',
+    }
 ];
 
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN!);
+async function registerCommands(guildId?: string) {
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN as string);
+
+    try {
+        if (guildId) {
+            const existingCommands = await rest.get(
+                Routes.applicationGuildCommands(client.user?.id as string, guildId)
+            ) as any[];
+
+            for (const command of existingCommands) {
+                await rest.delete(
+                    Routes.applicationGuildCommand(client.user?.id as string, guildId, command.id)
+                );
+            }
+
+            await rest.put(
+                Routes.applicationGuildCommands(client.user?.id as string, guildId),
+                { body: commands }
+            );
+            console.log(`Registered commands for guild ${guildId}`);
+        } else {
+            const existingCommands = await rest.get(
+                Routes.applicationCommands(client.user?.id as string)
+            ) as any[];
+
+            for (const command of existingCommands) {
+                await rest.delete(
+                    Routes.applicationCommand(client.user?.id as string, command.id)
+                );
+            }
+
+            await rest.put(
+                Routes.applicationCommands(client.user?.id as string),
+                { body: commands }
+            );
+            console.log('Registered global commands');
+        }
+    } catch (error) {
+        console.error('Error registering commands:', error);
+    }
+}
+
+const manager = new Manager({
+    nodes: [
+        {
+            host: process.env.LAVALINK as string,
+            port: 2333,
+            password: process.env.LAVALINK_PASSWORD as string,
+            secure: false,
+        },
+    ],
+    send(id, payload) {
+        const guild = client.guilds.cache.get(id);
+        if (guild) guild.shard.send(payload);
+    },
+});
 
 client.once('ready', async () => {
     console.log('Ongaku Bot is online!');
-    try {
-        const guilds = await client.guilds.fetch();
+    console.log(`Connected Nodes: ${manager.nodes.map(node => node.host).join(', ')}`);
+    manager.init(client.user?.id as string);
 
-        guilds.forEach(async (guild) => {
-            try {
-                await rest.put(
-                    Routes.applicationGuildCommands(client.user!.id, guild.id),
-                    { body: commands },
-                );
-                console.log(`Successfully reloaded application (/) commands for guild ${guild.id}.`);
-            } catch (error) {
-                console.error(`Failed to register commands for guild ${guild.id}:`, error);
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching guilds:', error);
-    }
+    await registerCommands();
+
+    client.user?.setPresence({
+        activities: [{ 
+            name: 'to BANGERS',
+            type: 'LISTENING'
+        }],
+        status: 'online'
+    });
 });
 
-client.on('guildCreate', async (guild) => {
-    console.log(`Joined a new guild: ${guild.id}`);
-
-    // Register commands for the new guild
-    try {
-        await rest.put(
-            Routes.applicationGuildCommands(client.user!.id, guild.id),
-            { body: commands },
-        );
-        console.log(`Successfully registered commands for new guild ${guild.id}.`);
-    } catch (error) {
-        console.error(`Failed to register commands for new guild ${guild.id}:`, error);
-    }
+client.on('guildCreate', async (guild: Guild) => {
+    await registerCommands(guild.id);
 });
 
-client.on('interactionCreate', async (interaction) => {
+client.on('raw', (d: any) => manager.updateVoiceState(d));
+
+manager.on('nodeConnect', (node: Node) => console.log(`Node ${node.options.identifier} connected.`));
+manager.on('nodeError', (node: Node, error: Error) => console.error(`Node ${node.options.identifier} had an error: ${error.message}`));
+
+client.on('interactionCreate', async (interaction: CommandInteraction) => {
     if (!interaction.isCommand()) return;
 
-    const { commandName, options } = interaction as CommandInteraction;
+    const { commandName, options } = interaction;
     const member = interaction.member as GuildMember;
 
     if (commandName === 'play') {
@@ -91,50 +133,35 @@ client.on('interactionCreate', async (interaction) => {
             return await interaction.reply('You need to join a voice channel first!');
         }
 
-        if (currentConnection) {
-            currentConnection.destroy();
+        const station = options.getString('station');
+        const query = station === 'kpop' ? process.env.KPOP : process.env.JPOP;
+
+        const player = manager.create({
+            guild: interaction.guildId as string,
+            voiceChannel: member.voice.channel.id,
+            textChannel: interaction.channelId,
+        });
+
+        player.connect();
+
+        const searchResult = await manager.search(query as string, interaction.user);
+
+        if (searchResult.loadType === 'LOAD_FAILED') {
+            return interaction.reply('Failed to load the station.');
         }
 
-        const station = options.get('station')?.value as string;
-        const currentStation = station === 'kpop' ? 'K-Pop' : 'J-Pop';
-
-        const radioUrl = station === 'kpop' ? process.env.KPOP! : process.env.JPOP!;
-        const connection = joinVoiceChannel({
-            channelId: member.voice.channel.id,
-            guildId: interaction.guildId!,
-            adapterCreator: interaction.guild!.voiceAdapterCreator as any,
-        });
-
-        currentConnection = connection;
-
-        const player = createAudioPlayer();
-        const resource = createAudioResource(radioUrl);
-
-        player.play(resource);
-        connection.subscribe(player);
-
-        player.on(AudioPlayerStatus.Playing, () => {
-            console.log(`The ${currentStation} radio is playing!`);
-        });
-
-        player.on('error', error => {
-            console.error('Error:', error);
-        });
-
-        await interaction.reply(`Playing the ${currentStation} radio!`);
+        player.queue.add(searchResult.tracks[0]);
+        if (!player.playing && !player.paused && !player.queue.size) player.play();
+        await interaction.reply(`Playing the ${station?.toUpperCase()} radio!`);
     } else if (commandName === 'stop') {
         if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
             return await interaction.reply('You need to be an administrator to stop the bot.');
         }
 
-        if (!currentConnection) {
-            return await interaction.reply('The bot is not currently connected to a voice channel.');
-        }
+        const player = manager.players.get(interaction.guildId as string);
+        if (!player) return await interaction.reply('The bot is not currently playing in a voice channel.');
 
-        currentConnection.destroy();
-        currentConnection = null;
-        currentPlayer = null;
-
+        player.destroy();
         await interaction.reply('Stopped the radio and disconnected from the voice channel.');
     } else if (commandName === 'info') {
         const guilds = await client.guilds.fetch();
