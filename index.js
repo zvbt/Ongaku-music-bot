@@ -15,17 +15,17 @@ const client = new Client({
 
 const commands = [
     {
-        name: 'play',
-        description: 'Play music from the selected station',
+         name: 'play',
+        description: 'Plays K-Pop or J-Pop in your current voice channel',
         options: [
             {
                 name: 'station',
                 type: 3, // STRING type
-                description: 'The music station to play',
+                description: 'Choose the radio station to play',
                 required: true,
                 choices: [
-                    { name: 'Kpop', value: 'kpop' },
-                    { name: 'Jpop', value: 'jpop' }
+                    { name: 'K-Pop', value: 'kpop' },
+                    { name: 'J-Pop', value: 'jpop' }
                 ],
             },
         ],
