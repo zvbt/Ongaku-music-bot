@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, REST } = require('discord.js');
+const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, REST, Routes } = require('discord.js');
 const { Manager } = require('erela.js');
 const dotenv = require('dotenv');
 
@@ -12,6 +12,51 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
     ],
 });
+
+const commands = [
+    {
+        name: 'play',
+        description: 'Play music from the selected station',
+        options: [
+            {
+                name: 'station',
+                type: 3, // STRING type
+                description: 'The music station to play (kpop/jpop)',
+                required: true,
+            },
+        ],
+    },
+    {
+        name: 'stop',
+        description: 'Stop the music and disconnect the bot from the voice channel',
+    },
+    {
+        name: 'info',
+        description: 'Get information about the bot and its stats',
+    }
+];
+
+async function registerCommands(guildId) {
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+    try {
+        if (guildId) {
+            await rest.put(
+                Routes.applicationGuildCommands(client.user.id, guildId),
+                { body: commands }
+            );
+            console.log(`Registered commands for guild ${guildId}`);
+        } else {
+            await rest.put(
+                Routes.applicationCommands(client.user.id),
+                { body: commands }
+            );
+            console.log('Registered global commands');
+        }
+    } catch (error) {
+        console.error('Error registering commands:', error);
+    }
+}
 
 // Lavalink configuration
 const manager = new Manager({
@@ -29,68 +74,30 @@ const manager = new Manager({
     },
 });
 
-client.once('ready', () => {
+client.once('ready', async () => {
     console.log('Ongaku Bot is online!');
     console.log(`Connected Nodes: ${manager.nodes.map(node => node.host).join(', ')}`);
     manager.init(client.user.id);
 
+    await registerCommands(); // Register global commands on bot start
 
     client.user.setPresence({
         activities: [{ 
             name: 'to BANGERS',
-            type: 'LISTENING'// (PLAYING, STREAMING, LISTENING, WATCHING)
+            type: 'LISTENING'
         }],
-        status: 'online'// (online, idle, dnd, invisible)
+        status: 'online'
     });
 });
 
-
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
-client.once('ready', async () => {
-    console.log('Ongaku Bot is online!');
-    try {
-        const guilds = await client.guilds.fetch();
-
-        guilds.forEach(async (guild) => {
-            try {
-                await rest.put(
-                    Routes.applicationGuildCommands(client.user.id, guild.id),
-                    { body: commands },
-                );
-                console.log(`Successfully reloaded application (/) commands for guild ${guild.id}.`);
-            } catch (error) {
-                console.error(`Failed to register commands for guild ${guild.id}:`, error);
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching guilds:', error);
-    }
-});
-
 client.on('guildCreate', async (guild) => {
-    console.log(`Joined a new guild: ${guild.id}`);
-
-    // Register commands for the new guild
-    try {
-        await rest.put(
-            Routes.applicationGuildCommands(client.user.id, guild.id),
-            { body: commands },
-        );
-        console.log(`Successfully registered commands for new guild ${guild.id}.`);
-    } catch (error) {
-        console.error(`Failed to register commands for new guild ${guild.id}:`, error);
-    }
+    await registerCommands(guild.id); // Register commands for a specific guild when the bot joins
 });
-
-
 
 client.on('raw', (d) => manager.updateVoiceState(d));
 
 manager.on('nodeConnect', node => console.log(`Node ${node.options.identifier} connected.`));
 manager.on('nodeError', (node, error) => console.error(`Node ${node.options.identifier} had an error: ${error.message}`));
-
-
-client.on('raw', (d) => manager.updateVoiceState(d));
 
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
