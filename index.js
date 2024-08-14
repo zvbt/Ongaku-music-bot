@@ -42,7 +42,42 @@ client.once('ready', () => {
         }],
         status: 'online'// (online, idle, dnd, invisible)
     });
+
+    try {
+    const guilds = await client.guilds.fetch();
+
+    guilds.forEach(async (guild) => {
+        try {
+            await rest.put(
+                Routes.applicationGuildCommands(client.user.id, guild.id),
+                { body: commands },
+            );
+            console.log(`Successfully reloaded application (/) commands for guild ${guild.id}.`);
+        } catch (error) {
+            console.error(`Failed to register commands for guild ${guild.id}:`, error);
+        }
+    });
+} catch (error) {
+    console.error('Error fetching guilds:', error);
+}
+
 });
+
+client.on('guildCreate', async (guild) => {
+    console.log(`Joined a new guild: ${guild.id}`);
+
+    // Register commands for the new guild
+    try {
+        await rest.put(
+            Routes.applicationGuildCommands(client.user.id, guild.id),
+            { body: commands },
+        );
+        console.log(`Successfully registered commands for new guild ${guild.id}.`);
+    } catch (error) {
+        console.error(`Failed to register commands for new guild ${guild.id}:`, error);
+    }
+});
+
 
 client.on('raw', (d) => manager.updateVoiceState(d));
 
