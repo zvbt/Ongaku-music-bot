@@ -21,8 +21,12 @@ const commands = [
             {
                 name: 'station',
                 type: 3, // STRING type
-                description: 'The music station to play (kpop/jpop)',
+                description: 'The music station to play',
                 required: true,
+                choices: [
+                    { name: 'Kpop', value: 'kpop' },
+                    { name: 'Jpop', value: 'jpop' }
+                ],
             },
         ],
     },
@@ -41,7 +45,6 @@ async function registerCommands(guildId) {
 
     try {
         if (guildId) {
-            // Unregister existing guild-specific commands
             const existingCommands = await rest.get(
                 Routes.applicationGuildCommands(client.user.id, guildId)
             );
@@ -52,14 +55,12 @@ async function registerCommands(guildId) {
                 );
             }
 
-            // Register new commands
             await rest.put(
                 Routes.applicationGuildCommands(client.user.id, guildId),
                 { body: commands }
             );
             console.log(`Registered commands for guild ${guildId}`);
         } else {
-            // Unregister existing global commands
             const existingCommands = await rest.get(
                 Routes.applicationCommands(client.user.id)
             );
@@ -70,7 +71,6 @@ async function registerCommands(guildId) {
                 );
             }
 
-            // Register new commands
             await rest.put(
                 Routes.applicationCommands(client.user.id),
                 { body: commands }
@@ -103,7 +103,7 @@ client.once('ready', async () => {
     console.log(`Connected Nodes: ${manager.nodes.map(node => node.host).join(', ')}`);
     manager.init(client.user.id);
 
-    await registerCommands(); // Register global commands on bot start
+    await registerCommands();
 
     client.user.setPresence({
         activities: [{ 
@@ -115,7 +115,7 @@ client.once('ready', async () => {
 });
 
 client.on('guildCreate', async (guild) => {
-    await registerCommands(guild.id); // Register commands for a specific guild when the bot joins
+    await registerCommands(guild.id);
 });
 
 client.on('raw', (d) => manager.updateVoiceState(d));
