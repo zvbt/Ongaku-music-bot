@@ -1,19 +1,17 @@
-const { Client, GatewayIntentBits, REST, Routes, PermissionsBitField, GuildMember, EmbedBuilder } = require('discord.js');
-const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const dotenv = require ('dotenv');
+const { Client, GatewayIntentBits, PermissionsBitField, EmbedBuilder, REST, Routes } = require('discord.js');
+const { Manager } = require('erela.js');
+const dotenv = require('dotenv');
 
 dotenv.config();
 
-const client = new Client({ 
+const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds, 
-        GatewayIntentBits.GuildVoiceStates, 
-        GatewayIntentBits.GuildMembers
-    ] 
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+    ],
 });
-
-let currentConnection = null;
-let currentPlayer = null;
 
 const commands = [
     {
@@ -34,50 +32,95 @@ const commands = [
     },
     {
         name: 'stop',
-        description: 'Stops the radio and disconnects the bot from the voice channel',
+        description: 'Stop the music and disconnect the bot from the voice channel',
     },
     {
         name: 'info',
-        description: 'Displays information about the bot',
-    },
+        description: 'Get information about the bot and its stats',
+    }
 ];
 
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+async function registerCommands(guildId) {
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+
+    try {
+        if (guildId) {
+            const existingCommands = await rest.get(
+                Routes.applicationGuildCommands(client.user.id, guildId)
+            );
+
+            for (const command of existingCommands) {
+                await rest.delete(
+                    Routes.applicationGuildCommand(client.user.id, guildId, command.id)
+                );
+            }
+
+            await rest.put(
+                Routes.applicationGuildCommands(client.user.id, guildId),
+                { body: commands }
+            );
+            console.log(`Registered commands for guild ${guildId}`);
+        } else {
+            const existingCommands = await rest.get(
+                Routes.applicationCommands(client.user.id)
+            );
+
+            for (const command of existingCommands) {
+                await rest.delete(
+                    Routes.applicationCommand(client.user.id, command.id)
+                );
+            }
+
+            await rest.put(
+                Routes.applicationCommands(client.user.id),
+                { body: commands }
+            );
+            console.log('Registered global commands');
+        }
+    } catch (error) {
+        console.error('Error registering commands:', error);
+    }
+}
+
+// Lavalink configuration
+const manager = new Manager({
+    nodes: [
+        {
+            host: process.env.LAVALINK,
+            port: 2333,
+            password: process.env.LAVALINK_PASSWORD,
+            secure: false,
+        },
+    ],
+    send(id, payload) {
+        const guild = client.guilds.cache.get(id);
+        if (guild) guild.shard.send(payload);
+    },
+});
 
 client.once('ready', async () => {
     console.log('Ongaku Bot is online!');
-    try {
-        const guilds = await client.guilds.fetch();
+    console.log(`Connected Nodes: ${manager.nodes.map(node => node.host).join(', ')}`);
+    manager.init(client.user.id);
 
-        guilds.forEach(async (guild) => {
-            try {
-                await rest.put(
-                    Routes.applicationGuildCommands(client.user.id, guild.id),
-                    { body: commands },
-                );
-                console.log(`Successfully reloaded application (/) commands for guild ${guild.id}.`);
-            } catch (error) {
-                console.error(`Failed to register commands for guild ${guild.id}:`, error);
-            }
-        });
-    } catch (error) {
-        console.error('Error fetching guilds:', error);
-    }
+    await registerCommands();
+
+    client.user.setPresence({
+        activities: [{
+        name: 'BANGER',
+        type: 2,
+        state: '    ',
+    }] })
 });
 
 client.on('guildCreate', async (guild) => {
-    console.log(`Joined a new guild: ${guild.id}`);
-
-    try {
-        await rest.put(
-            Routes.applicationGuildCommands(client.user.id, guild.id),
-            { body: commands },
-        );
-        console.log(`Successfully registered commands for new guild ${guild.id}.`);
-    } catch (error) {
-        console.error(`Failed to register commands for new guild ${guild.id}:`, error);
-    }
+    await registerCommands(guild.id);
 });
+
+client.on('raw', (d) => manager.updateVoiceState(d));
+
+manager.on('nodeConnect', node => console.log(`Node ${node.options.identifier} connected.`));
+manager.on('nodeError', (node, error) => console.error(`Node ${node.options.identifier} had an error: ${error.message}`));
 
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return;
@@ -87,56 +130,46 @@ client.on('interactionCreate', async (interaction) => {
 
     if (commandName === 'play') {
         if (!member.voice.channel) {
-            return await interaction.reply('You need to join a voice channel first!');
+            return await interaction.reply({ content: 'You need to join a voice channel first!', ephemeral: true });
         }
 
-        if (currentConnection) {
-            currentConnection.destroy();
-        }
+        const station = options.getString('station');
+        const query = station === 'kpop' ? process.env.KPOP : process.env.JPOP;
 
-        const station = options.get('station')?.value;
-        const currentStation = station === 'kpop' ? 'K-Pop' : 'J-Pop';
-
-        const radioUrl = station === 'kpop' ? process.env.KPOP : process.env.JPOP;
-        const connection = joinVoiceChannel({
-            channelId: member.voice.channel.id,
-            guildId: interaction.guildId,
-            adapterCreator: interaction.guild.voiceAdapterCreator,
+        const player = manager.create({
+            guild: interaction.guild.id,
+            voiceChannel: member.voice.channel.id,
+            textChannel: interaction.channel.id,
         });
 
-        currentConnection = connection;
+        player.connect();
 
-        const player = createAudioPlayer();
-        const resource = createAudioResource(radioUrl);
+        const searchResult = await manager.search(query, interaction.user);
 
-        player.play(resource);
-        connection.subscribe(player);
-
-        player.on(AudioPlayerStatus.Playing, () => {
-            console.log(`The ${currentStation} radio is playing!`);
-        });
-
-        player.on('error', error => {
-            console.error('Error:', error);
-        });
-
-        await interaction.reply(`Playing the ${currentStation} radio!`);
-    } else if (commandName === 'stop') {
-        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return await interaction.reply('You need to be an administrator to stop the bot.');
+        if (searchResult.loadType === 'LOAD_FAILED') {
+            return interaction.reply({ content: 'Failed to load the station.', ephemeral: true });
         }
 
-        if (!currentConnection) {
-            return await interaction.reply('The bot is not currently connected to a voice channel.');
+        player.queue.add(searchResult.tracks[0]);
+        if (!player.playing && !player.paused && !player.queue.size) player.play();
+        await interaction.reply({ content: `Playing the ${station.toUpperCase()} radio!`, ephemeral: true });
+    } 
+    
+    else if (commandName === 'stop') {
+        const djRole = interaction.guild.roles.cache.find(role => role.name.toLowerCase().includes('dj'));
+    
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && (!djRole || !member.roles.cache.has(djRole.id))) {
+            return await interaction.reply({ content: 'You need a DJ role or Administrator permissions to stop the bot.', ephemeral: true });
         }
-
-        currentConnection.destroy();
-        currentConnection = null;
-        currentPlayer = null;
-
-        await interaction.reply('Stopped the radio and disconnected from the voice channel.');
-        await interaction.r
-    } else if (commandName === 'info') {
+    
+        const player = manager.players.get(interaction.guild.id);
+        if (!player) return await interaction.reply({ content: 'The bot is not currently playing in a voice channel.', ephemeral: true });
+    
+        player.destroy();
+        await interaction.reply({ content: 'Stopped the radio and disconnected from the voice channel.', ephemeral: true });
+    }
+    
+    else if (commandName === 'info') {
         const guilds = await client.guilds.fetch();
         const totalMembers = (await Promise.all(
             guilds.map(async (guild) => {
@@ -153,16 +186,17 @@ client.on('interactionCreate', async (interaction) => {
         const botInfoEmbed = new EmbedBuilder()
             .setColor('#f0bfe9')
             .setTitle('Ongaku music bot')
-            .setURL('https://discord.com/oauth2/authorize?client_id=1271103628127506522&permissions=2184203264&integration_type=0&scope=bot')
-            .setThumbnail('https://ongaku.zvbt.space/favicon.png')
+            .setURL('https://ongaku.zvbt.space/invite')
+            .setThumbnail(client.user?.displayAvatarURL())
             .setDescription('Discover the best of Jpop and Kpop on Ongaku your go-to music bot for streaming all your favorite Japanese and Korean pop music hits. Dive into the latest tracks, timeless classics, and carefully curated playlists that celebrate the vibrant world of Jpop and Kpop music.')
             .setTimestamp()
             .addFields(
                 { name: 'Stats', value: `${totalMembers} users in ${client.guilds.cache.size} servers.` || 'N/A' },
+                { name: 'Playlists', value: `[🎀 K-POP Banger](https://sptfy.com/kpopbanger)\n[🌸 Asian Banger](https://sptfy.com/asianbanger)` || 'N/A' },
             )
             .setFooter({ text: `Click the link above to invite the bot!`, iconURL: client.user?.displayAvatarURL() || ''});
 
-        await interaction.reply({ embeds: [botInfoEmbed] });
+        await interaction.reply({ embeds: [botInfoEmbed], ephemeral: false });
     }
 });
 
