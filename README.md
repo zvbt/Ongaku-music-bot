@@ -18,5 +18,4 @@ LAVALINK_PASSWORD=                 # Lavalink password
 ```
 
 ## Invite
-
 You can invite the bot to your Discord server with this [link](https://ongaku.zvbt.space/invite) 
