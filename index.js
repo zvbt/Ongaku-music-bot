@@ -15,7 +15,7 @@ const client = new Client({
 
 const commands = [
     {
-         name: 'play',
+        name: 'play',
         description: 'Plays K-Pop or J-Pop in your current voice channel',
         options: [
             {
@@ -106,12 +106,11 @@ client.once('ready', async () => {
     await registerCommands();
 
     client.user.setPresence({
-        activities: [{ 
-            name: 'to BANGERS',
-            type: 'LISTENING'
-        }],
-        status: 'online'
-    });
+        activities: [{
+        name: 'BANGER',
+        type: 2,
+        state: '    ',
+    }] })
 });
 
 client.on('guildCreate', async (guild) => {
@@ -131,7 +130,7 @@ client.on('interactionCreate', async (interaction) => {
 
     if (commandName === 'play') {
         if (!member.voice.channel) {
-            return await interaction.reply('You need to join a voice channel first!');
+            return await interaction.reply({ content: 'You need to join a voice channel first!', ephemeral: true });
         }
 
         const station = options.getString('station');
@@ -148,23 +147,29 @@ client.on('interactionCreate', async (interaction) => {
         const searchResult = await manager.search(query, interaction.user);
 
         if (searchResult.loadType === 'LOAD_FAILED') {
-            return interaction.reply('Failed to load the station.');
+            return interaction.reply({ content: 'Failed to load the station.', ephemeral: true });
         }
 
         player.queue.add(searchResult.tracks[0]);
         if (!player.playing && !player.paused && !player.queue.size) player.play();
-        await interaction.reply(`Playing the ${station.toUpperCase()} radio!`);
-    } else if (commandName === 'stop') {
-        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return await interaction.reply('You need to be an administrator to stop the bot.');
+        await interaction.reply({ content: `Playing the ${station.toUpperCase()} radio!`, ephemeral: true });
+    } 
+    
+    else if (commandName === 'stop') {
+        const djRole = interaction.guild.roles.cache.find(role => role.name.toLowerCase().includes('dj'));
+    
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator) && (!djRole || !member.roles.cache.has(djRole.id))) {
+            return await interaction.reply({ content: 'You need a DJ role or Administrator permissions to stop the bot.', ephemeral: true });
         }
-
+    
         const player = manager.players.get(interaction.guild.id);
-        if (!player) return await interaction.reply('The bot is not currently playing in a voice channel.');
-
+        if (!player) return await interaction.reply({ content: 'The bot is not currently playing in a voice channel.', ephemeral: true });
+    
         player.destroy();
-        await interaction.reply('Stopped the radio and disconnected from the voice channel.');
-    } else if (commandName === 'info') {
+        await interaction.reply({ content: 'Stopped the radio and disconnected from the voice channel.', ephemeral: true });
+    }
+    
+    else if (commandName === 'info') {
         const guilds = await client.guilds.fetch();
         const totalMembers = (await Promise.all(
             guilds.map(async (guild) => {
@@ -181,16 +186,17 @@ client.on('interactionCreate', async (interaction) => {
         const botInfoEmbed = new EmbedBuilder()
             .setColor('#f0bfe9')
             .setTitle('Ongaku music bot')
-            .setURL('https://discord.com/oauth2/authorize?client_id=1271103628127506522&permissions=2184203264&integration_type=0&scope=bot')
-            .setThumbnail('https://ongaku.zvbt.space/favicon.png')
+            .setURL('https://ongaku.zvbt.space/invite')
+            .setThumbnail(client.user?.displayAvatarURL())
             .setDescription('Discover the best of Jpop and Kpop on Ongaku your go-to music bot for streaming all your favorite Japanese and Korean pop music hits. Dive into the latest tracks, timeless classics, and carefully curated playlists that celebrate the vibrant world of Jpop and Kpop music.')
             .setTimestamp()
             .addFields(
                 { name: 'Stats', value: `${totalMembers} users in ${client.guilds.cache.size} servers.` || 'N/A' },
+                { name: 'Playlists', value: `[🎀 K-POP Banger](https://sptfy.com/kpopbanger)\n[🌸 Asian Banger](https://sptfy.com/asianbanger)` || 'N/A' },
             )
             .setFooter({ text: `Click the link above to invite the bot!`, iconURL: client.user?.displayAvatarURL() || ''});
 
-        await interaction.reply({ embeds: [botInfoEmbed] });
+        await interaction.reply({ embeds: [botInfoEmbed], ephemeral: false });
     }
 });
 
