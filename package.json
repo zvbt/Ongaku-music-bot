@@ -1,7 +1,7 @@
 {
   "name": "ongaku-music-bot",
   "version": "1.0.0",
-  "description": "To install dependencies:",
+  "description": "Simple discord bot that stream web radio 24/7",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,10 +10,10 @@
   "license": "ISC",
   "dependencies": {
     "@discordjs/voice": "^0.17.0",
-    "discord.js": "^14.15.3",
+    "discord.js": "^14.16.1",
     "dotenv": "^16.4.5",
     "erela.js": "^2.4.0",
-    "libsodium-wrappers": "^0.7.14",
+    "libsodium-wrappers": "^0.7.15",
     "ts-node": "^10.9.2"
   }
 }
